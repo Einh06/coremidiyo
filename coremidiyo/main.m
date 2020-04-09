@@ -27,6 +27,28 @@ void myMidiReadProc(MIDIPacketList *pktList, void *readProcContext, void *srcCon
         Byte midiCommand = midiStatus >> 4;
         Byte midiChannel = midiStatus & 0x0F;
         printf("Command: %x, Channel: %x\n", midiCommand, midiChannel);
+        if (midiCommand == 0x08 || midiCommand == 0x09) {
+            Byte note = packet->data[1] & 0x7F;
+            Byte velocity = packet->data[2] & 0x7F;
+            printf("Note: %d, Velocity: %d\n", note, velocity);
+        }
+        if (midiCommand == 0x0b) {
+            Byte controllerNumber = packet->data[1] & 0x7F;
+            Byte controllerValue = packet->data[2] & 0x7F;
+            printf("Controller: %d, Value: %d\n", controllerNumber, controllerValue);
+        }
+        if (midiCommand == 0x0e) {
+            Byte LSB = packet->data[1] & 0x7F; // 7bits
+            Byte MSB = packet->data[2] & 0x7F; // 7bits
+            uint16_t LSB_16 = (uint16_t)LSB; // 0000 0000 0LLL LLLL
+            uint16_t MSB_16 = (uint16_t)MSB; // 0000 0000 0MMM MMMM
+            uint16_t shifted_MSB_16 = MSB_16 << 7; // 00MM MMMM M000 0000
+            uint16_t val = shifted_MSB_16 | LSB_16; // 00MM MMMM MLLL LLLL
+//            if (val < 0x2000) //less pitch bend
+//            if (val > 0x2000) //more pitch bend
+                
+            printf("Pitch Bend Value: %x\n", val);
+        }
         packet = MIDIPacketNext(packet);
     }
 }
