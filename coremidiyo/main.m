@@ -10,10 +10,22 @@
 #import <CoreMIDI/CoreMIDI.h>
 #import <AudioToolbox/AudioToolbox.h>
 
+MIDIPortRef outputPort;
+MIDIEndpointRef destEndpoint;
+
 typedef struct my_player_s {
     AUGraph graph;
     AudioUnit instrument;
 } my_player_t;
+
+typedef enum {
+
+    LPM_Session = 108,
+    LPM_User1 = 109,
+    LPM_User2 = 110,
+    LPM_Mixer = 111,
+
+} LaunchPadMini_Keys;
 
 void myMidiMessageProc(MIDINotification *message, void *userData) {
     
@@ -35,6 +47,7 @@ void myMidiReadProc(MIDIPacketList *pktList, void *readProcContext, void *srcCon
         if (midiCommand == 0x0b) {
             Byte controllerNumber = packet->data[1] & 0x7F;
             Byte controllerValue = packet->data[2] & 0x7F;
+
             printf("Controller: %d, Value: %d\n", controllerNumber, controllerValue);
         }
         if (midiCommand == 0x0e) {
@@ -51,6 +64,8 @@ void myMidiReadProc(MIDIPacketList *pktList, void *readProcContext, void *srcCon
         }
         packet = MIDIPacketNext(packet);
     }
+
+    MIDISend(outputPort, destEndpoint, pktList);
 }
 
 void setupAUGraph(my_player_t *player) {
@@ -76,13 +91,33 @@ void setupMidi(my_player_t *player) {
     
     for (int i = 0; i < sourceCount; ++i) {
         MIDIEndpointRef src = MIDIGetSource(i);
+
         CFStringRef endpointName = NULL;
         assert(noErr == MIDIObjectGetStringProperty(src, kMIDIPropertyName, &endpointName));
         
         char buffer[256] = {0};
         CFStringGetCString(endpointName, buffer, sizeof(buffer), kCFStringEncodingUTF8);
         printf("Source Name, %s\n", buffer);
+
         assert(noErr == MIDIPortConnectSource(inPort, src, NULL));
+    }
+
+    assert(noErr == MIDIOutputPortCreate(client, CFSTR("Output port"), &outputPort));
+
+    int destCount = (int)MIDIGetNumberOfDestinations();
+    printf("%d destinations\n", destCount);
+    for (int i = 0; i < destCount; ++i) {
+
+        MIDIEndpointRef dest = MIDIGetDestination(i);
+
+        CFStringRef endpointName;
+        assert(noErr == MIDIObjectGetStringProperty(dest, kMIDIPropertyName, &endpointName));
+
+        char buffer[256] = {0};
+        CFStringGetCString(endpointName, buffer, sizeof(buffer), kCFStringEncodingUTF8);
+        printf("Destination Name, %s\n", buffer);
+
+        destEndpoint = dest;
     }
 }
 
